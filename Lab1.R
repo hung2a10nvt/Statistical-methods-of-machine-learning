@@ -1,173 +1,203 @@
+# Загрузка необходимых библиотек
 library(moments)
 library(MASS)
 library(fitdistrplus)
 
-sampleSize      <- 150      # общий объём выборки
-lambdaExp       <- 1        # интенсивность для экспоненциального распределения
-gammaShape      <- 2        # shape-параметр для гамма-распределения
-gammaRate       <- 3        # rate-параметр для гамма-распределения
-geomProb        <- 0.16     # p-параметр для геометрического распределения
-binomN          <- 7        # количество испытаний для биномиального распределения
-binomProb       <- 0.01     # вероятность успеха для биномиального распределения
+set.seed(123)
 
+# Общее значение размера выборки
+N <- 150
+
+###############################
 # 1. БИНОМИАЛЬНОЕ РАСПРЕДЕЛЕНИЕ
+###############################
+# Параметры биномиального распределения
+binom_n <- 10      # количество испытаний
+binom_p <- 0.3     # вероятность успеха
 
-# 1.1 Генерация выборки
-binomSample <- rbinom(sampleSize, size = binomN, prob = binomProb)
+# Генерация выборки
+binom_sample <- rbinom(N, size = binom_n, prob = binom_p)
 
-# 1.2 Гистограмма + эмпирическая ф. распределения
-histBinom <- hist(binomSample,
-                  main = "Биномиальное распределение",
-                  xlab = "Кол-во успехов")
-lines(histBinom$counts ~ histBinom$mids, col = "blue")
+# Построение гистограммы и полигона частот
+binom_hist <- hist(binom_sample,
+                   main = "Биномиальное распределение",
+                   xlab = "Количество успехов",
+                   col = "lightblue")
+lines(binom_hist$counts ~ binom_hist$mids, col = "blue", lwd = 2)
 
-ecdfBinom <- ecdf(binomSample) # эмпирическая функция распределения
-plot(ecdfBinom, main = "Эмпирическая функция распределения (Binomial)")
+# Построение эмпирической функции распределения (ECDF)
+binom_ecdf <- ecdf(binom_sample)
+plot(binom_ecdf, main = "Эмпирическая функция распределения (Биномиальное)",
+     xlab = "Количество успехов", ylab = "F(x)")
 
-# 1.3 Выборочные числовые характеристики
-binomMean   <- mean(binomSample)
-binomVar    <- var(binomSample)
-binomSd     <- sd(binomSample)
-binomMedian <- median(binomSample)
-binomMode   <- density(binomSample)$x[which.max(density(binomSample)$y)]
-binomSkew   <- skewness(binomSample)
-binomKurt   <- kurtosis(binomSample)
+# Расчет выборочных характеристик
+binom_mean    <- mean(binom_sample)
+binom_var     <- var(binom_sample)
+binom_sd      <- sd(binom_sample)
+binom_median  <- median(binom_sample)
+# Оценка моды через density (для дискретных данных можно использовать таблицу частот)
+binom_mode    <- density(binom_sample)$x[which.max(density(binom_sample)$y)]
+binom_skew    <- skewness(binom_sample)
+binom_kurt    <- kurtosis(binom_sample)
 
-# 1.4 Теоретические мат.ожидание и дисперсия
-theorBinomMean <- binomN * binomProb    # E(X) = n.p
-theorBinomVar  <- binomN * binomProb * (1 - binomProb) # Var(X) = n.p(1-p)
+# Теоретические значения
+binom_theor_mean <- binom_n * binom_p
+binom_theor_var  <- binom_n * binom_p * (1 - binom_p)
 
-# (Пример «переоценки» параметра p по выборке)
-binomProbEst <- binomMean / binomN
+# Оценка параметра (например, p_est = выборочное среднее / число испытаний)
+binom_p_est <- binom_mean / binom_n
 
-# 1.6 Проверка гипотезы о виде распределения критерием χ^2 
-# (примеры бывают разные, здесь тестируют против нормального с μ=mean, σ=sd)
-binomHistCounts <- hist(binomSample, plot = FALSE)$counts
-binomHistBreaks <- hist(binomSample, plot = FALSE)$breaks
-kBinom          <- length(binomHistCounts)
-binomHistBreaks[1]       <- -Inf
-binomHistBreaks[kBinom+1] <- Inf
-binomTheorCdf   <- pnorm(binomHistBreaks, mean = binomMean, sd = binomSd)
-binomProbTheor  <- binomTheorCdf[2:(kBinom+1)] - binomTheorCdf[1:kBinom]
-chisq.test(binomHistCounts, p = binomProbTheor)
+# Проверка гипотезы о виде распределения с помощью критерия χ²
+binom_x_vals     <- 0:binom_n  # возможные значения
+binom_obs_counts <- table(factor(binom_sample, levels = binom_x_vals))
+binom_exp_probs  <- dbinom(binom_x_vals, size = binom_n, prob = binom_p)
+binom_exp_counts <- N * binom_exp_probs
+binom_chisq_test <- chisq.test(binom_obs_counts, p = binom_exp_probs, rescale.p = TRUE)
+print(binom_chisq_test)
 
+###############################
 # 2. ГЕОМЕТРИЧЕСКОЕ РАСПРЕДЕЛЕНИЕ
+###############################
+# Параметры геометрического распределения
+geom_prob <- 0.16  # вероятность успеха
 
-# 2.1 Генерация выборки
-geomSample <- rgeom(sampleSize, prob = geomProb)
+# Генерация выборки (количество неудач до первого успеха)
+geom_sample <- rgeom(N, prob = geom_prob)
 
-# 2.2 fitdistr для оценки параметра
-fitdistr(geomSample, "geometric")
+# Оценка параметра с помощью fitdistr
+geom_fit <- fitdistr(geom_sample, "geometric")
+print(geom_fit)
 
-# 2.3 Выборочные числовые характеристики
-geomMean   <- mean(geomSample)
-geomVar    <- var(geomSample)
-geomSd     <- sd(geomSample)
-geomMedian <- median(geomSample)
-densGeom   <- density(geomSample)
-geomMode   <- densGeom$x[which.max(densGeom$y)]
-geomSkew   <- skewness(geomSample)
-geomKurt   <- kurtosis(geomSample)
+# Расчет выборочных характеристик
+geom_mean    <- mean(geom_sample)
+geom_var     <- var(geom_sample)
+geom_sd      <- sd(geom_sample)
+geom_median  <- median(geom_sample)
+geom_density <- density(geom_sample)
+geom_mode    <- geom_density$x[which.max(geom_density$y)]
+geom_skew    <- skewness(geom_sample)
+geom_kurt    <- kurtosis(geom_sample)
 
-# 2.4 Теоретические мат.ожидание и дисперсия
-theorGeomMean <- (1 - geomProb) / geomProb
-theorGeomVar  <- (1 - geomProb) / (geomProb^2)
+# Теоретические значения
+geom_theor_mean <- (1 - geom_prob) / geom_prob
+geom_theor_var  <- (1 - geom_prob) / (geom_prob^2)
 
-# 2.5 Гистограмма + эмпирическая функция распределения
-histGeom <- hist(geomSample,
-                 main = "Геометрическое распределение",
-                 xlab = "Кол-во испытаний до первого успеха")
-lines(histGeom$counts ~ histGeom$mids, col = "blue")
+# Построение гистограммы и эмпирической функции распределения
+geom_hist <- hist(geom_sample,
+                  main = "Геометрическое распределение",
+                  xlab = "Количество неудач до первого успеха",
+                  col = "lightgreen")
+lines(geom_hist$counts ~ geom_hist$mids, col = "blue", lwd = 2)
+geom_ecdf <- ecdf(geom_sample)
+plot(geom_ecdf, main = "Эмпирическая функция распределения (Геометрическое)",
+     xlab = "Количество неудач", ylab = "F(x)")
 
-ecdfGeom <- ecdf(geomSample)
-plot(ecdfGeom, main = "Эмпирическая функция распределения (Geometric)")
+# Проверка гипотезы о виде распределения (χ²-тест) для геометрического распределения
+geom_hist_counts <- hist(geom_sample, plot = FALSE)$counts
+geom_hist_breaks <- hist(geom_sample, plot = FALSE)$breaks
+k_geom          <- length(geom_hist_counts)
+geom_hist_breaks[1]         <- -Inf
+geom_hist_breaks[k_geom+1]    <- Inf
+geom_theor_cdf  <- pgeom(geom_hist_breaks, prob = geom_prob)
+geom_exp_probs  <- geom_theor_cdf[2:(k_geom+1)] - geom_theor_cdf[1:k_geom]
+geom_chisq_test <- chisq.test(geom_hist_counts, p = geom_exp_probs)
+print(geom_chisq_test)
 
-# 2.6 Проверка гипотезы о виде распределения критерием χ^2
-geomHistCounts <- hist(geomSample, plot = FALSE)$counts
-geomHistBreaks <- hist(geomSample, plot = FALSE)$breaks
-kGeom          <- length(geomHistCounts)
-geomHistBreaks[1]       <- -Inf
-geomHistBreaks[kGeom+1] <- Inf
-geomTheorCdf   <- pgeom(geomHistBreaks, prob = geomProb)
-geomProbTheor  <- geomTheorCdf[2:(kGeom+1)] - geomTheorCdf[1:kGeom]
-chisq.test(geomHistCounts, p = geomProbTheor)
+###############################
+# 3. ЭКСПОНЕНЦИАЛЬНОЕ РАСПРЕДЕЛЕНИЕ
+###############################
+# Параметры экспоненциального распределения
+exp_lambda <- 1  # интенсивность (λ)
 
-# 3.1 Генерация выборки
-expSample <- rexp(sampleSize, rate = lambdaExp)
+# Генерация выборки
+exp_sample <- rexp(N, rate = exp_lambda)
 
-# 3.2 Построение гистограммы + полигон и оценка плотности
-histExp <- hist(expSample,
-                col = "blue",
-                main = "Экспоненциальное распределение",
-                xlab = "Значения") 
-lines(histExp$counts ~ histExp$mids, col = "red")  # полигон частот
+# Построение гистограммы, полигона частот и оценка плотности
+exp_hist <- hist(exp_sample,
+                 col = "lightblue",
+                 main = "Экспоненциальное распределение",
+                 xlab = "Значения",
+                 probability = TRUE)
+lines(exp_hist$counts ~ exp_hist$mids, col = "red", lwd = 2)
+exp_density <- density(exp_sample)
+plot(exp_density, main = "Оценка плотности (Экспоненциальное)",
+     xlab = "Значения", ylab = "Плотность")
 
-densExp <- density(expSample)  # оценить эмпирическую функцию плотности (применимую к непрерывным переменным).
-plot(densExp, main = "Оценка плотности (Exponential)")
+# Расчет выборочных характеристик
+exp_mean    <- mean(exp_sample)
+exp_var     <- var(exp_sample)
+exp_sd      <- sd(exp_sample)
+exp_median  <- median(exp_sample)
+exp_mode    <- exp_density$x[which.max(exp_density$y)]
+exp_skew    <- skewness(exp_sample)
+exp_kurt    <- kurtosis(exp_sample)
 
-# 3.3 Выборочные числовые характеристики
-expMean   <- mean(expSample)
-expVar    <- var(expSample)
-expSd     <- sd(expSample) # standard deviation
-expMedian <- median(expSample)
-expMode   <- densExp$x[which.max(densExp$y)]
-expSkew   <- skewness(expSample)
-expKurt   <- kurtosis(expSample)
+# Теоретические значения
+exp_theor_mean <- 1 / exp_lambda
+exp_theor_var  <- 1 / (exp_lambda^2)
 
-# 3.4 Теоретические мат.ожидание и дисперсия
-theorExpMean <- 1 / lambdaExp
-theorExpVar  <- 1 / (lambdaExp^2)
+# Оценка параметров через fitdistr и fitdist
+exp_fit1 <- fitdistr(exp_sample, "exponential")
+exp_fit2 <- fitdist(exp_sample, "exp")
+print(exp_fit1)
+print(exp_fit2)
 
-# 3.5 Оценка параметров через fitdistr
-fitdist(expSample, "exp")
-fitdistr(expSample, "exponential")
+# Проверка гипотезы о виде распределения (χ²-тест) для экспоненциального распределения
+exp_hist_counts <- hist(exp_sample, plot = FALSE)$counts
+exp_hist_breaks <- hist(exp_sample, plot = FALSE)$breaks
+k_exp          <- length(exp_hist_counts)
+exp_hist_breaks[1]      <- -Inf
+exp_hist_breaks[k_exp+1] <- Inf
+exp_theor_cdf  <- pexp(exp_hist_breaks, rate = exp_lambda)
+exp_exp_probs  <- exp_theor_cdf[2:(k_exp+1)] - exp_theor_cdf[1:k_exp]
+exp_chisq_test <- chisq.test(exp_hist_counts, p = exp_exp_probs)
+print(exp_chisq_test)
 
-# 3.6 Проверка гипотезы о виде распределения критерием χ^2
-expHistCounts <- hist(expSample, plot = FALSE)$counts
-expHistBreaks <- hist(expSample, plot = FALSE)$breaks
-kExp          <- length(expHistCounts)
-expHistBreaks[1]     <- -Inf
-expHistBreaks[kExp+1] <- Inf
-expTheorCdf   <- pexp(expHistBreaks, rate = lambdaExp)
-expProbTheor  <- expTheorCdf[2:(kExp+1)] - expTheorCdf[1:kExp]
-chisq.test(expHistCounts, p = expProbTheor)
-
+###############################
 # 4. ГАММА-РАСПРЕДЕЛЕНИЕ
+###############################
+# Параметры гамма-распределения
+gamma_shape <- 2   # параметр shape
+gamma_rate  <- 3   # параметр rate
 
-# 4.1 Генерация выборки
-gammaSample <- rgamma(sampleSize, shape = gammaShape, rate = gammaRate)
+# Генерация выборки
+gamma_sample <- rgamma(N, shape = gamma_shape, rate = gamma_rate)
 
-# 4.2 Гистограмма + полигон и оценка плотности
-histGamma <- hist(gammaSample,
-                  col  = "green",
-                  main = "Гамма-распределение",
-                  xlab = "Значения")
-lines(histGamma$counts ~ histGamma$mids, col = "red")
-densGamma <- density(gammaSample)
-plot(densGamma, main = "Оценка плотности (Gamma)")
+# Построение гистограммы, полигона частот и оценка плотности
+gamma_hist <- hist(gamma_sample,
+                   col = "lightgreen",
+                   main = "Гамма-распределение",
+                   xlab = "Значения",
+                   probability = TRUE)
+lines(gamma_hist$counts ~ gamma_hist$mids, col = "red", lwd = 2)
+gamma_density <- density(gamma_sample)
+plot(gamma_density, main = "Оценка плотности (Гамма)",
+     xlab = "Значения", ylab = "Плотность")
 
-# 4.3 Выборочные числовые характеристики
-gammaMean   <- mean(gammaSample)
-gammaVar    <- var(gammaSample)
-gammaSd     <- sd(gammaSample)
-gammaMedian <- median(gammaSample)
-gammaMode   <- densGamma$x[which.max(densGamma$y)]
-gammaSkew   <- skewness(gammaSample)
-gammaKurt   <- kurtosis(gammaSample)
+# Расчет выборочных характеристик
+gamma_mean    <- mean(gamma_sample)
+gamma_var     <- var(gamma_sample)
+gamma_sd      <- sd(gamma_sample)
+gamma_median  <- median(gamma_sample)
+gamma_mode    <- gamma_density$x[which.max(gamma_density$y)]
+gamma_skew    <- skewness(gamma_sample)
+gamma_kurt    <- kurtosis(gamma_sample)
 
-# 4.4 Теоретические мат.ожидание и дисперсия
-theorGammaMean <- gammaShape / gammaRate
-theorGammaVar  <- gammaShape / (gammaRate^2)
+# Теоретические значения
+gamma_theor_mean <- gamma_shape / gamma_rate
+gamma_theor_var  <- gamma_shape / (gamma_rate^2)
 
-# 4.5 Оценка параметров
-fitdistr(gammaSample, "gamma")
+# Оценка параметров с помощью fitdistr
+gamma_fit <- fitdistr(gamma_sample, "gamma")
+print(gamma_fit)
 
-# 4.6 Проверка гипотезы о виде распределения критерием χ^2
-gammaHistCounts <- hist(gammaSample, plot = FALSE)$counts
-gammaHistBreaks <- hist(gammaSample, plot = FALSE)$breaks
-kGamma          <- length(gammaHistCounts)
-gammaHistBreaks[1]       <- -Inf
-gammaHistBreaks[kGamma+1] <- Inf
-gammaTheorCdf   <- pgamma(gammaHistBreaks, shape = gammaShape, rate = gammaRate)
-gammaProbTheor  <- gammaTheorCdf[2:(kGamma+1)] - gammaTheorCdf[1:kGamma]
-chisq.test(gammaHistCounts, p = gammaProbTheor)
+# Проверка гипотезы о виде распределения (χ²-тест) для гамма-распределения
+gamma_hist_counts <- hist(gamma_sample, plot = FALSE)$counts
+gamma_hist_breaks <- hist(gamma_sample, plot = FALSE)$breaks
+k_gamma          <- length(gamma_hist_counts)
+gamma_hist_breaks[1]       <- -Inf
+gamma_hist_breaks[k_gamma+1] <- Inf
+gamma_theor_cdf  <- pgamma(gamma_hist_breaks, shape = gamma_shape, rate = gamma_rate)
+gamma_exp_probs  <- gamma_theor_cdf[2:(k_gamma+1)] - gamma_theor_cdf[1:k_gamma]
+gamma_chisq_test <- chisq.test(gamma_hist_counts, p = gamma_exp_probs)
+print(gamma_chisq_test)
